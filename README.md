@@ -20,13 +20,14 @@ Built with the Quarkus Jib extension (no Dockerfile needed):
 ```bash
 ./mvnw package \
   -Dquarkus.container-image.build=true \
-  -Dquarkus.container-image.push=true \
+  -Dquarkus.container-image.push=false \
   -Dquarkus.container-image.tag=<git tag> \
   -DskipTests
 ```
 
-CI (`.github/workflows/build.yml`) does this on every `v*` tag and pushes to
-`quay.io/sovereign-selfheal/quarkus-buggy-app`.
+CI (`.github/workflows/build.yml`) runs on pull requests and pushes to `main` to verify
+Maven/tests and image build (no push). Quay builds/pushes the tagged release image
+separately to `quay.io/sovereign-selfheal/quarkus-buggy-app`.
 
 ## Consumer
 

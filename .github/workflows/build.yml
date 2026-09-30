@@ -1,37 +1,35 @@
-name: build
+name: ci
 
 on:
+  pull_request:
   push:
-    tags:
-      - "v*"
+    branches: [main]
 
+permissions:
+  contents: read
+
+# Quay builds and pushes this image on git tags (build trigger). This workflow only
+# checks that the app and container image build; it pushes nothing.
 jobs:
-  build-and-push:
+  build-and-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Log in to quay.io
-        run: |
-          echo "${{ secrets.QUAY_PASSWORD }}" | podman login quay.io \
-            -u "${{ secrets.QUAY_USERNAME }}" --password-stdin
+      - name: Verify Maven build and tests
+        run: ./mvnw --no-transfer-progress verify
 
-      - name: Build and push with Jib
+      - name: Build container image with Jib (no push)
         run: |
           ./mvnw --no-transfer-progress package \
             -Dquarkus.container-image.build=true \
-            -Dquarkus.container-image.push=true \
-            -Dquarkus.container-image.tag="${GITHUB_REF_NAME}" \
+            -Dquarkus.container-image.push=false \
+            -Dquarkus.container-image.tag=ci \
             -DskipTests
-
-      - name: Resolve pushed digest
-        run: |
-          skopeo inspect "docker://quay.io/sovereign-selfheal/quarkus-buggy-app:${GITHUB_REF_NAME}" \
-            | tee /tmp/inspect.json
-          echo "Digest: $(jq -r .Digest /tmp/inspect.json)"
-          echo "Copy this digest into gitops components/quarkus-buggy-app/values.yaml"
