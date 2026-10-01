@@ -20,14 +20,17 @@ Built with the Quarkus Jib extension (no Dockerfile needed):
 ```bash
 ./mvnw package \
   -Dquarkus.container-image.build=true \
-  -Dquarkus.container-image.push=false \
+  -Dquarkus.container-image.push=true \
   -Dquarkus.container-image.tag=<git tag> \
+  -Dquarkus.container-image.username=<quay-user-or-robot> \
+  -Dquarkus.container-image.password=<quay-token-or-password> \
   -DskipTests
 ```
 
 CI (`.github/workflows/build.yml`) runs on pull requests and pushes to `main` to verify
-Maven/tests and image build (no push). Quay builds/pushes the tagged release image
-separately to `quay.io/sovereign-selfheal/quarkus-buggy-app`.
+Maven/tests and image build without pushing. On `v*` tags it pushes with Jib directly to
+`quay.io/sovereign-selfheal/quarkus-buggy-app`, using the repository secrets
+`QUAY_USERNAME` and `QUAY_PASSWORD`.
 
 ## Consumer
 

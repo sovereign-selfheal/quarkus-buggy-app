@@ -4,14 +4,13 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ["v*"]
 
 permissions:
   contents: read
 
-# Quay builds and pushes this image on git tags (build trigger). This workflow only
-# checks that the app and container image build; it pushes nothing.
 jobs:
-  build-and-smoke:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
@@ -26,10 +25,30 @@ jobs:
       - name: Verify Maven build and tests
         run: ./mvnw --no-transfer-progress verify
 
-      - name: Build container image with Jib (no push)
+      - name: Compute image tag and push mode
+        id: vars
         run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=ci-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build image with Jib and push on release tags
+        env:
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+        run: |
+          EXTRA_ARGS=""
+          if [[ "${{ steps.vars.outputs.push }}" == "true" ]]; then
+            EXTRA_ARGS="-Dquarkus.container-image.username=${QUAY_USERNAME} -Dquarkus.container-image.password=${QUAY_PASSWORD}"
+          fi
+
           ./mvnw --no-transfer-progress package \
             -Dquarkus.container-image.build=true \
-            -Dquarkus.container-image.push=false \
-            -Dquarkus.container-image.tag=ci \
-            -DskipTests
+            -Dquarkus.container-image.push=${{ steps.vars.outputs.push }} \
+            -Dquarkus.container-image.tag=${{ steps.vars.outputs.tag }} \
+            -DskipTests \
+            ${EXTRA_ARGS}
